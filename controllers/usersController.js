@@ -1,16 +1,41 @@
-// controllers/usersController.js
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
 exports.getAllUsers = async (req, res) => {
-  const users = await User.find().limit(200);
+  const users = await User.find();
   res.json(users);
 };
 
-exports.createUser = async (req, res) => {
-  const { name, email, googleId, role } = req.body;
-  const exists = await User.findOne({ email });
-  if (exists) return res.status(409).json({ message: 'User with this email already exists' });
-  const user = new User({ name, email, googleId, role });
-  await user.save();
-  res.status(201).json(user);
+exports.getUserById = async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  res.json(user);
 };
+
+exports.createUser = async (req, res) => {
+  const { name, email, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const newUser = new User({ name, email, password: hashedPassword });
+  await newUser.save();
+  res.status(201).json({ message: 'User created successfully', user: newUser });
+};
+
+exports.updateUser = async (req, res) => {
+  const { name, email, password } = req.body;
+  const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+  const updatedUser = await User.findByIdAndUpdate(
+    req.params.id,
+    { name, email, ...(hashedPassword && { password: hashedPassword }) },
+    { new: true }
+  );
+  if (!updatedUser) return res.status(404).json({ message: 'User not found' });
+  res.json({ message: 'User updated successfully', user: updatedUser });
+};
+
+exports.deleteUser = async (req, res) => {
+  const deletedUser = await User.findByIdAndDelete(req.params.id);
+  if (!deletedUser) return res.status(404).json({ message: 'User not found' });
+  res.json({ message: 'User deleted successfully' });
+};
+
+
